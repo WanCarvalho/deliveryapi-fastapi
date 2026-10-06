@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from models import Usuario
-from dependencies import sessao_db
+from dependencies import sessao_db, verificar_token
 from main import bcrypt_context, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY
 from schemas import UsuarioSchema, LoginSchema
 from sqlalchemy.orm import Session
@@ -10,8 +10,8 @@ from datetime import datetime, timedelta, timezone
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def criar_token(id_usuario):
-    data_expiracao = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+def criar_token(id_usuario, duracao_token=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)):
+    data_expiracao = datetime.now(timezone.utc) + duracao_token
     dicionario_informacoes = {"sub": id_usuario, "data_expiracao": data_expiracao.timestamp()}
     encoded_jwt = jwt.encode(dicionario_informacoes, SECRET_KEY, ALGORITHM)
     
@@ -60,12 +60,24 @@ async def login(login_schema: LoginSchema, session: Session = Depends(sessao_db)
         raise HTTPException(status_code=400, detail="Usuário não encontrado ou credenciais inválidas.")
     else:
         access_token = criar_token(usuario.id)
+        refresh_token = criar_token(usuario.id, duracao_token=timedelta(days=7))
         
         return {
             "access_token": access_token,
+            "refresh_token": refresh_token,
             "token_type": "Bearer"
         }
-        
+
+
+@router.get("/refresh")
+async def use_refresh_token(usuario: Usuario = Depends(verificar_token)):
+    access_token = criar_token(usuario.id)
+    
+    return {
+        "access_token": access_token,
+        "token_type": "Bearer"
+    }
+
 
 @router.delete("/excluir_usuario")
 async def deletar_usuario(id_usuario, session: Session = Depends(sessao_db)):

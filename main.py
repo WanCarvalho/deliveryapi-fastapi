@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from dotenv import load_dotenv
 import os
@@ -14,6 +15,7 @@ app = FastAPI(
 )
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+ouath2_schema = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 from routes import auth, pedidos
 
