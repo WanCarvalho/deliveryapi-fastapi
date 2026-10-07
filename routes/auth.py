@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from models import Usuario
 from dependencies import sessao_db, verificar_token
 from main import bcrypt_context, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY
@@ -44,13 +44,13 @@ async def criar_conta(usuario_schema: UsuarioSchema, session: Session = Depends(
     usuario = session.query(Usuario).filter(Usuario.email == usuario_schema.email).first()
     
     if usuario: 
-        raise HTTPException(status_code=400, detail="E-mail do usuário já cadastrado.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="E-mail do usuário já cadastrado.")
     else: 
         senha_criptografada = bcrypt_context.hash(usuario_schema.senha)
         novo_usuario = Usuario(usuario_schema.nome, usuario_schema.email, senha_criptografada, usuario_schema.ativo, usuario_schema.admin)
         session.add(novo_usuario)
         session.commit()
-        return HTTPException(status_code=200, detail=f"Novo usuário {usuario_schema.email} cadastrado com sucesso.")
+        return HTTPException(status_code=status.HTTP_200_OK, detail=f"Novo usuário {usuario_schema.email} cadastrado com sucesso.")
     
     
 @router.post("/login")
@@ -58,7 +58,7 @@ async def login(login_schema: LoginSchema, session: Session = Depends(sessao_db)
     usuario = autenticar_usuario(login_schema.email, login_schema.senha, session)
     
     if not usuario:
-        raise HTTPException(status_code=400, detail="Usuário não encontrado ou credenciais inválidas.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuário não encontrado ou credenciais inválidas.")
     else:
         access_token = criar_token(usuario.id)
         refresh_token = criar_token(usuario.id, duracao_token=timedelta(days=7))
@@ -76,7 +76,7 @@ async def login_form(dados_formulario: OAuth2PasswordRequestForm = Depends(), se
     usuario = autenticar_usuario(dados_formulario.username, dados_formulario.password, session)
     
     if not usuario:
-        raise HTTPException(status_code=400, detail="Usuário não encontrado ou credenciais inválidas.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuário não encontrado ou credenciais inválidas.")
     else:
         access_token = criar_token(usuario.id)
         
@@ -103,4 +103,4 @@ async def deletar_usuario(id_usuario, session: Session = Depends(sessao_db)):
     session.delete(usuario)
     session.commit()
     
-    return HTTPException(status_code=200, detail=f"Usuario de id {id_usuario} deletado com sucesso.")
+    return HTTPException(status_code=status.HTTP_200_OK, detail=f"Usuario de id {id_usuario} deletado com sucesso.")

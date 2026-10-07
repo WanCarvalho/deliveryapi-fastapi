@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
-from dependencies import sessao_db
+from fastapi import APIRouter, Depends, HTTPException, status
+from dependencies import sessao_db, verificar_token
 from sqlalchemy.orm import Session
 from schemas import PedidoSchema
-from models import Pedido
+from models import Pedido, Usuario
 
-router = APIRouter(prefix="/pedidos", tags=["pedidos"])
+router = APIRouter(prefix="/pedidos", tags=["pedidos"], dependencies=[Depends(verificar_token)])
 
 @router.get("")
 async def pedidos():
@@ -15,10 +15,28 @@ async def pedidos():
     return {"mensagem": "Acessou rota de pedidos!"}
 
 
-@router.post("")
+@router.post("/criar")
 async def criar_pedido(pedido_schema: PedidoSchema, session: Session = Depends(sessao_db)):
     novo_pedido = Pedido(usuario=pedido_schema.usuario)
     session.add(novo_pedido)
     session.commit()
     
     return {"mensagem": f"Pedido criado com sucesso, ID do pedido: {novo_pedido.id}"}
+
+
+@router.post("/cancelar/{id_pedido}")
+async def cancelar_pedido(id_pedido: int, session: Session = Depends(sessao_db), usuario: Usuario = Depends(verificar_token)):
+    pedido = session.query(Pedido).filter(Pedido.id == id_pedido).first()
+    
+    if not pedido:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pedido não encontrado.")
+    if not usuario.admin and usuario.id != pedido.usuario:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Você não tem autorização para essa ação.")
+    
+    pedido.status = "CANCELADO"
+    session.commit()
+    
+    return {
+        "mensagem": f"Pedido N° {pedido.id} cancelado com sucesso.",
+        "pedido": pedido
+    }
