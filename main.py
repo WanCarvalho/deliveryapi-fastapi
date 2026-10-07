@@ -15,7 +15,7 @@ app = FastAPI(
 )
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-ouath2_schema = OAuth2PasswordBearer(tokenUrl="auth/login")
+ouath2_schema = OAuth2PasswordBearer(tokenUrl="auth/login-form")
 
 from routes import auth, pedidos
 
