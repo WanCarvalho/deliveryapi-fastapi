@@ -126,3 +126,39 @@ async def finalizar_pedido(id_pedido: int, session: Session = Depends(sessao_db)
         "mensagem": f"Pedido N° {pedido.id} finalizado com sucesso.",
         "pedido": pedido
     }
+    
+    
+@router.get("/{id_pedido}")
+async def visualizar_pedido(id_pedido, session: Session = Depends(sessao_db), usuario: Usuario = Depends(verificar_token)):
+    pedido = session.query(Pedido).filter(Pedido.id == id_pedido).first()
+    
+    if not pedido:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pedido não encontrado.")
+    if not usuario.admin and usuario.id != pedido.usuario:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Você não tem autorização para essa ação.")
+    
+    return {
+        "quantidade_itens_pedido": len(pedido.itens),
+        "pedido": pedido
+    }
+    
+    
+@router.get("/listar/pedidos-usuario/{id_usuario}")
+async def listar_pedidos(id_usuario, session: Session = Depends(sessao_db), usuario: Usuario = Depends(verificar_token)):
+    if not usuario.admin:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Você não tem autorização para essa ação.")
+    else:
+        pedidos = session.query(Pedido).filter(Pedido.usuario == id_usuario).all()
+        
+        return {
+            "pedidos": pedidos
+        }
+        
+
+@router.get("/listar/meus-pedidos")
+async def listar_meus_pedidos(session: Session = Depends(sessao_db), usuario: Usuario = Depends(verificar_token)):
+    pedidos = session.query(Pedido).filter(Pedido.usuario == usuario.id).all()
+    
+    return {
+        "pedidos": pedidos
+    }
