@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from dependencies import sessao_db, verificar_token
 from sqlalchemy.orm import Session, selectinload
-from schemas import PedidoSchema, ItemPedidoSchema
+from schemas import PedidoSchema, ItemPedidoSchema, ResponsePedidoSchema
 from models import Pedido, Usuario, PedidoItem
+from typing import List
 
 router = APIRouter(prefix="/pedidos", tags=["pedidos"], dependencies=[Depends(verificar_token)])
 
@@ -143,22 +144,18 @@ async def visualizar_pedido(id_pedido, session: Session = Depends(sessao_db), us
     }
     
     
-@router.get("/listar/pedidos-usuario/{id_usuario}")
+@router.get("/listar/pedidos-usuario/{id_usuario}", response_model=List[ResponsePedidoSchema])
 async def listar_pedidos(id_usuario, session: Session = Depends(sessao_db), usuario: Usuario = Depends(verificar_token)):
     if not usuario.admin:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Você não tem autorização para essa ação.")
     else:
         pedidos = session.query(Pedido).filter(Pedido.usuario == id_usuario).all()
         
-        return {
-            "pedidos": pedidos
-        }
+        return pedidos
         
 
-@router.get("/listar/meus-pedidos")
+@router.get("/listar/meus-pedidos", response_model=List[ResponsePedidoSchema])
 async def listar_meus_pedidos(session: Session = Depends(sessao_db), usuario: Usuario = Depends(verificar_token)):
     pedidos = session.query(Pedido).filter(Pedido.usuario == usuario.id).all()
     
-    return {
-        "pedidos": pedidos
-    }
+    return pedidos
