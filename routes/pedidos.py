@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from dependencies import sessao_db, verificar_token
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from schemas import PedidoSchema, ItemPedidoSchema
 from models import Pedido, Usuario, PedidoItem
 
@@ -80,4 +80,49 @@ async def adicionar_item_pedido(id_pedido: int,
         "mensagem": "Item criado com sucesso.",
         "item_id": item_pedido.id,
         "preco_pedido": pedido.preco
+    }
+    
+    
+@router.post("/remover-item/{id_pedido_item}")
+async def remover_item_pedido(id_pedido_item: int,
+                                session: Session = Depends(sessao_db),
+                                usuario: Usuario = Depends(verificar_token)):
+    pedido_item = session.query(PedidoItem).filter(PedidoItem.id == id_pedido_item).first()
+    
+    if not pedido_item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item do pedido não encontrado.")
+    
+    pedido = session.query(Pedido).options(selectinload(Pedido.itens)).filter(Pedido.id == pedido_item.pedido).first()
+    
+    if not pedido:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido não encontrado.")
+    if not usuario.admin and usuario.id != pedido.usuario:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Você não tem autorização para essa ação.")
+    
+    session.delete(pedido_item)
+    pedido.calcular_preco()
+    session.commit()
+    session.refresh(pedido)
+    
+    return {
+        "mensagem": "Item removido com sucesso.",
+        "pedido": pedido
+    }
+    
+    
+@router.post("/finalizar/{id_pedido}")
+async def finalizar_pedido(id_pedido: int, session: Session = Depends(sessao_db), usuario: Usuario = Depends(verificar_token)):
+    pedido = session.query(Pedido).filter(Pedido.id == id_pedido).first()
+    
+    if not pedido:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pedido não encontrado.")
+    if not usuario.admin and usuario.id != pedido.usuario:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Você não tem autorização para essa ação.")
+    
+    pedido.status = "FINALIZADO"
+    session.commit()
+    
+    return {
+        "mensagem": f"Pedido N° {pedido.id} finalizado com sucesso.",
+        "pedido": pedido
     }
