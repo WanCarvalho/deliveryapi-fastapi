@@ -97,10 +97,15 @@ async def use_refresh_token(usuario: Usuario = Depends(verificar_token)):
 
 
 @router.delete("/excluir_usuario")
-async def deletar_usuario(id_usuario, session: Session = Depends(sessao_db)):
-    usuario = session.query(Usuario).filter(Usuario.id == id_usuario).first()
+async def deletar_usuario(id_usuario, session: Session = Depends(sessao_db), usuario: Usuario = Depends(verificar_token)):
+    usuario_deletar = session.query(Usuario).filter(Usuario.id == id_usuario).first()
     
-    session.delete(usuario)
+    if not usuario.admin:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sem autorização para deletar usuário.")
+    if usuario_deletar.admin:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuários admins não podem ser deletados.")
+    
+    session.delete(usuario_deletar)
     session.commit()
     
     return HTTPException(status_code=status.HTTP_200_OK, detail=f"Usuario de id {id_usuario} deletado com sucesso.")
